@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ${PREFIX}-fsm
+  namespace: ${NAMESPACE}
+data:
+  GROUP_ID: ${GROUP_ID}
+  CLIENT_ID: ${CLIENT_ID}
+  TOPIC: ${TOPIC}
+  ACKS: "1"
+  CONCURRENCY: "1"
+  FROM_BEGINNING: "${FROM_BEGINNING}"
+  MECHANISM: plain
+  SIMULATED_CLOCK: "false"
+  FSM_CODE: |
+${FSM_CODE}
+${OPTIONS}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ${PREFIX}-fsm
+  namespace: ${NAMESPACE}
+type: Opaque
+data:
+${SECRETS}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${PREFIX}-fsm
+  labels:
+    app: ${PREFIX}-fsm
+  namespace: ${NAMESPACE}
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: ${PREFIX}-fsm
+  template:
+    metadata:
+      labels:
+        app: ${PREFIX}-fsm
+    spec:
+      nodeSelector:
+        agentpool: workloadpool
+      containers:
+      - name: ${PREFIX}-fsm
+        image: ${IMAGE}
+        imagePullPolicy: Always
+        envFrom:
+        - configMapRef:
+          name: ${PREFIX}-fsm
+${CONFIG_MAP_REFS}
+        - secretRef:
+          name: ${PREFIX}-fsm
+${SECRET_REFS}
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: fsm-code
+          mountPath: /usr/src/app/src/generic-fsm.ts
+          subPath: generic-fsm.ts
+      volumes:
+        - name: fsm-code
+          configMap:
+            name: ${PREFIX}-fsm
+            items:
+              - key: FSM_CODE
+                path: generic-fsm.ts
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ${PREFIX}-fsm
+  namespace: ${NAMESPACE}
+spec:
+  maxReplicas: ${MAX_REPLICAS}
+  minReplicas: ${MIN_REPLICAS}
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ${PREFIX}-fsm
+  targetCPUUtilizationPercentage: ${TARGET_CPU}

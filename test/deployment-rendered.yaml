@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foo-fooey-fsm
+  namespace: bar
+data:
+  GROUP_ID: ${GROUP_ID}
+  CLIENT_ID: ${CLIENT_ID}
+  TOPIC: baz
+  ACKS: "1"
+  CONCURRENCY: "1"
+  FROM_BEGINNING: "false"
+  MECHANISM: plain
+  SIMULATED_CLOCK: "false"
+  FSM_CODE: |
+    BOO
+    BOO
+    BOO
+  OPT_1: x
+  OPT_2: Y
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: foo-fooey-fsm
+  namespace: bar
+type: Opaque
+data:
+  SEC_1: YWJj
+  SEC_2: eHl6
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: foo-fooey-fsm
+  labels:
+    app: foo-fooey-fsm
+  namespace: bar
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: foo-fooey-fsm
+  template:
+    metadata:
+      labels:
+        app: foo-fooey-fsm
+    spec:
+      nodeSelector:
+        agentpool: workloadpool
+      containers:
+      - name: foo-fooey-fsm
+        image: image:1.2.3
+        imagePullPolicy: Always
+        envFrom:
+        - configMapRef:
+          name: foo-fooey-fsm
+        - configMapRef:
+          name: kafka
+        - configMapRef:
+          name: redis
+        - configMapRef:
+          name: redis-timer
+        - secretRef:
+          name: foo-fooey-fsm
+        - secretRef:
+          name: kafka
+        - secretRef:
+          name: redis
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: fsm-code
+          mountPath: /usr/src/app/src/generic-fsm.ts
+          subPath: generic-fsm.ts
+      volumes:
+        - name: fsm-code
+          configMap:
+            name: foo-fooey-fsm
+            items:
+              - key: FSM_CODE
+                path: generic-fsm.ts
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: foo-fooey-fsm
+  namespace: bar
+spec:
+  maxReplicas: 5
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: foo-fooey-fsm
+  targetCPUUtilizationPercentage: 90

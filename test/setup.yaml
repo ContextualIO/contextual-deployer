@@ -1,0 +1,161 @@
+schema:
+  input:
+    type: object
+    required:
+      - NAME
+      - TOPIC
+      - FROM_BEGINNINNG
+      - FSM_TYPE
+      - FSM_CODE
+      - LOG_LEVEL
+      - MIN_REPLICAS
+      - MAX_REPLICAS
+      - TARGET_CPU
+    properties:
+      NAME:
+        type: string
+      FSM_TYPE:
+        type: string
+        enum:
+        - typescript
+        - ethel
+      FSM_CODE:
+        type: string
+      TOPIC: 
+        type: string
+      FROM_BEGINNING:
+        type: boolean
+      MIN_REPLICAS:
+        type: integer
+        minimum: 1
+      # this should be constrained by number of partitions in KAFKA_TOPIC, too, but how?
+      MAX_REPLICAS:
+        type: integer
+        minimum: 1
+      TARGET_CPU:
+        type: integer
+        minimum: 0
+        maximum: 100
+      LOG_LEVEL:
+        type: string
+        enum:
+          - error
+          - warning
+          - info
+          - debug
+          - trace
+      SOME_SECRET:
+        type: string
+      SOME_OTHER_SECRET:
+        type: string
+      OPTIONS:
+        type: array
+        items:
+          type: object
+          properties:
+            key:
+              type: string
+            value:
+              type: string
+  # this defines the layout of the ui and will be given 
+  # directly to json forms
+  ui:
+    type: VerticalLayout
+    elements:
+      - type: Control
+        scope: "#/properties/NAME"
+      - type: Group
+        label: Kafka
+        elements:
+        - type: VerticalLayout
+          elements:
+          - type: Control
+            scope: "#/properties/TOPIC"
+          - type: Control
+            scope: "#/properties/FROM_BEGINNING"
+      - type: Control
+        scope: "#/properties/OPTIONS"
+      - type: Group
+        label: Scaling
+        elements:
+        - type: VerticalLayout
+          elements:
+          - type: HorizontalLayout
+            elements:
+            - type: Control
+              scope: "#/properties/MIN_REPLICAS"
+            - type: Control
+              scope: "#/properties/MAX_REPLICAS"
+          - type: Control
+            scope: "#/properties/TARGET_CPU"
+      - type: Control
+        scope: "#/properties/LOG_LEVEL"
+      - type: Group
+        label: Finite State Machine Code
+        elements:
+        - type: VerticalLayout
+          elements:
+          - type: Control
+            scope: "#/properties/OPTIONS"
+          - type: Control
+            scope: "#/properties/FSM_TYPE"
+          - type: Control
+            scope: "#/properties/FSM_CODE"
+            options:
+              multi: true
+# generated describes values that we'll generate from
+# the user input
+generated:
+- name: PREFIX
+  transforms:
+  - expand: ${NAME}
+  - lowercase
+  - space-to-dash
+- name: GROUP_ID
+  transforms:
+  - expand: ${PREFIX}-fsm
+  source: ${PREFIX}-fsm
+- name: CLIENT_ID
+  transforms:
+  - expand: ${PREFIX}-fsm
+- name: FSM_CODE
+  transforms:
+  - expand: ${FSM_CODE}
+  - indent: 4
+- name: OPTIONS
+  source: OPTIONS
+  transforms:
+  - filter:
+    secret: false
+  - spread
+  - indent: 2
+- name: SECRETS
+  source: OPTIONS
+  transforms:
+  - filter:
+    secret: true
+  - spread
+  - indent: 2
+- name: CONFIG_MAP_REFS
+  source: CONFIG_MAP_REFS
+  transforms:
+  - indent: 8
+- name: SECRET_REFS
+  source: SECRET_REFS
+  transforms:
+  - indent: 8
+# external things that need to be created/referenced
+dependencies:
+  kafka: # injects kafka KAFKA_BROKERS, KAFKA_USERNAME, KAFKA_PASSWORD, KAFKA_MECHANISM
+  - configMap
+  - secret
+  redis: # injects REDIS_URL, REDIS_API_KEY
+  - configMap
+  - secret
+  redis-timer: # injects REDIS_TIMERS_KEY_NAME
+  - configMap
+
+# these come from the environment and are not specified
+# or modifiable by the user
+environment:
+- NAMESPACE
