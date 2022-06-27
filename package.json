@@ -1,9 +1,10 @@
 {
-  "name": "@muraladvisors/contexual-deployer",
+  "name": "@muraladvisors/contextual-deployer",
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
   "scripts": {
+    "build": "tsc",
     "test": "jest",
     "prettier": "prettier src",
     "lint": "eslint src",
